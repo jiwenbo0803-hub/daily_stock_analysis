@@ -2007,13 +2007,14 @@ class AkshareFetcher(BaseFetcher):
             
         return stats
 
-    def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
+def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
         """
         获取行业板块涨跌榜
 
         数据源优先级：
-        1. 东财接口 (ak.stock_board_industry_name_em)
-        2. 新浪接口 (ak.stock_sector_spot)
+        1. 同花顺行业接口 (ak.stock_board_industry_name_ths) - 与通达信分类接近
+        2. 同花顺概念接口 (ak.stock_board_concept_name_ths) - fallback
+        3. 东财接口 (ak.stock_board_industry_name_em) - 最后兜底
         """
         import akshare as ak
 
@@ -2034,35 +2035,68 @@ class AkshareFetcher(BaseFetcher):
                 for _, row in bottom.iterrows()
             ]
             return top_sectors, bottom_sectors
-        
-        # 优先东财接口
+
+        # 优先同花顺行业接口（与通达信分类最接近）
         try:
             self._set_random_user_agent()
             self._enforce_rate_limit()
 
-            logger.info("[API调用] ak.stock_board_industry_name_em() 获取板块排行...")
+            logger.info("[API调用] ak.stock_board_industry_name_ths() 获取板块排行(同花顺)...")
+            df = ak.stock_board_industry_name_ths()
+            if df is not None and not df.empty:
+                # 同花顺接口列名：名称、涨跌幅、换手率、成交额、净流入、上涨家数、下跌家数
+                change_col = '涨跌幅'
+                name = '名称'
+                if change_col in df.columns and name in df.columns:
+                    return _get_rank_top_n(df, change_col, name, n)
+
+        except Exception as e:
+            logger.warning(f"[Akshare] 同花顺行业接口获取板块排行失败: {e}，尝试同花顺概念接口")
+
+        # 同花顺行业失败后，尝试同花顺概念接口
+        try:
+            self._set_random_user_agent()
+            self._enforce_rate_limit()
+
+            logger.info("[API调用] ak.stock_board_concept_name_ths() 获取板块排行(同花顺概念)...")
+            df = ak.stock_board_concept_name_ths()
+            if df is not None and not df.empty:
+                change_col = '涨跌幅'
+                name = '名称'
+                if change_col in df.columns and name in df.columns:
+                    return _get_rank_top_n(df, change_col, name, n)
+
+        except Exception as e:
+            logger.warning(f"[Akshare] 同花顺概念接口获取板块排行失败: {e}，尝试东财接口")
+
+        # 同花顺都失败后，兜底东财接口
+        try:
+            self._set_random_user_agent()
+            self._enforce_rate_limit()
+
+            logger.info("[API调用] ak.stock_board_industry_name_em() 获取板块排行(东财)...")
             df = ak.stock_board_industry_name_em()
             if df is not None and not df.empty:
                 change_col = '涨跌幅'
                 name = '板块名称'
                 return _get_rank_top_n(df, change_col, name, n)
-            
+
         except Exception as e:
             logger.warning(f"[Akshare] 东财接口获取行业板块排行失败: {e}，尝试新浪接口")
 
-        # 东财失败后，尝试新浪接口
+        # 最后兜底新浪接口
         try:
             self._set_random_user_agent()
             self._enforce_rate_limit()
 
-            logger.info("[API调用] ak.stock_sector_spot() 获取行业板块排行(新浪)...")
+            logger.info("[API调用] ak.stock_sector_spot() 获取板块排行(新浪)...")
             df = ak.stock_sector_spot(indicator='行业')
             if df is None or df.empty:
                 return None
             change_col = '涨跌幅'
             name = '板块'
             return _get_rank_top_n(df, change_col, name, n)
-        
+
         except Exception as e:
             logger.error(f"[Akshare] 新浪接口获取板块排行也失败: {e}")
             return None
