@@ -675,7 +675,8 @@ def _save_reused_market_review_report(
     if not any(body.startswith(item) for item in ("# 🎯 大盘复盘", "# 🎯 Market Review")):
         body = f"{title}\n\n{body}"
     try:
-        date_str = datetime.now().strftime('%Y%m%d')
+        tz_cn = timezone(timedelta(hours=8))
+        date_str = datetime.now(tz_cn).strftime('%Y%m%d')
         report_filename = f"market_review_{date_str}.md"
         filepath = notifier.save_report_to_file(body, report_filename)
         logger.info(
@@ -815,7 +816,8 @@ def run_full_analysis(
             should_run_market_review
             and getattr(config, 'daily_market_context_enabled', True)
         )
-        analysis_reference_time = datetime.now(timezone.utc)
+        tz_cn = timezone(timedelta(hours=8))
+        analysis_reference_time = datetime.now(tz_cn)
         daily_market_context_target_date = None
         if should_use_daily_market_context:
             daily_market_context_target_date = _resolve_daily_market_context_target_date(
@@ -1347,7 +1349,8 @@ def main() -> int:
 
     logger.info("=" * 60)
     logger.info("A股自选股智能分析系统 启动")
-    logger.info(f"运行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    tz_cn = timezone(timedelta(hours=8))
+    logger.info(f"运行时间: {datetime.now(tz_cn).strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=" * 60)
 
     # 验证配置
