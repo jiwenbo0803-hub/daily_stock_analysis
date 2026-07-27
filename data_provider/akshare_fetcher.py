@@ -2007,7 +2007,7 @@ class AkshareFetcher(BaseFetcher):
             
         return stats
 
-def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
+    def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
         """
         获取行业板块涨跌榜
 
